@@ -1,0 +1,38 @@
+name: Docker Compose CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Start services with Docker Compose
+        run: docker compose up -d
+
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in {1..15}; do
+            if docker exec $(docker ps -qf "ancestor=mysql:latest") \
+              mysqladmin ping -h"127.0.0.1" --silent; then
+              echo "MySQL is ready!"
+              exit 0
+            fi
+            echo "Waiting for MySQL..."
+            sleep 5
+          done
+          echo "MySQL did not become ready in time"
+          exit 1
+
+      - name: Test nginx is running
+        run: curl -I http://localhost:8080
